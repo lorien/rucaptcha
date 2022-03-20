@@ -4,6 +4,9 @@ __all__ = [
     "ApiError",
     "ResultNotReady",
     "ResultTimeout",
+    "ZeroBalance",
+    "ServiceIsBusy",
+    "ServiceUnexpectedError",
 ]
 
 
@@ -11,11 +14,19 @@ class RucaptchaError(Exception):
     pass
 
 
-class ConfigurationError(Exception):
+class ConfigurationError(RucaptchaError):
     pass
 
 
-class ApiError(Exception):
+class ResultTimeout(RucaptchaError):
+    pass
+
+
+class ServiceUnexpectedError(RucaptchaError):
+    pass
+
+
+class ApiError(RucaptchaError):
     def __init__(self, error_code, error_description=None):
         self.error_code = error_code
         self.error_description = error_description
@@ -30,5 +41,9 @@ class ResultNotReady(ApiError):
     pass
 
 
-class ResultTimeout(RucaptchaError):
+class ZeroBalance(ApiError):
+    pass
+
+
+class ServiceIsBusy(ApiError):
     pass

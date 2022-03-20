@@ -5,9 +5,17 @@ import logging
 
 from urllib3 import PoolManager
 
-from .errors import ConfigurationError, ResultTimeout, ResultNotReady
+from .errors import (
+    ConfigurationError,
+    ResultTimeout,
+    ResultNotReady,
+    ZeroBalance,
+    ServiceIsBusy,
+    ServiceUnexpectedError,
+)
 
 __all__ = ["RucaptchaApi"]
+logger = logging.getLogger("rucaptcha.api")
 VALID_TASK_TYPES = ["image", "text"]
 DEFAULT_TASK_TIMEOUT = 60
 VALID_LANGS = set(
@@ -72,6 +80,8 @@ VALID_LANGS = set(
 SOFTWARE_ID = 2373
 ERROR_CLASS = {
     "CAPCHA_NOT_READY": ResultNotReady,
+    "ERROR_ZERO_BALANCE": ZeroBalance,
+    "ERROR_NO_SLOT_AVAILABLE": ServiceIsBusy,
 }
 
 
@@ -127,12 +137,17 @@ class RucaptchaApi(object):
             )
         )
 
-    def parse_response(self, res_data_bytes):
-        res_data = json.loads(res_data_bytes.decode("utf-8"))
-        if res_data["status"] == 1:
-            return res_data["request"]
+    def parse_response(self, res):
+        if res.status != 200:
+            raise ServiceUnexpectedError(
+                "Remote API responded with non-200 status code: {}".format(res.status)
+            )
         else:
-            raise self.build_error(res_data)
+            data = json.loads(res.data.decode("utf-8"))
+            if data["status"] == 1:
+                return data["request"]
+            else:
+                raise self.build_error(data)
 
     # Generic Methods
 
@@ -146,7 +161,7 @@ class RucaptchaApi(object):
             if val is not None:
                 fields[key] = val
         res = self.pool.request("POST", url, fields=fields)
-        return self.parse_response(res.data)
+        return self.parse_response(res)
 
     def get_task_result(self, task_id):
         url = "http://rucaptcha.com/res.php"
@@ -157,7 +172,7 @@ class RucaptchaApi(object):
             "json": "1",
         }
         res = self.pool.request("GET", url, fields=fields)
-        return self.parse_response(res.data)
+        return self.parse_response(res)
 
     def process_task(self, **task_params):
         task_id = self.submit_task(**task_params)
@@ -169,13 +184,14 @@ class RucaptchaApi(object):
             try:
                 return self.get_task_result(task_id)
             except ResultNotReady:
-                logging.debug("Result for task id={} is not ready".format(task_id))
+                logger.debug("Result for task id={} is not ready".format(task_id))
                 time.sleep(5)
         raise ResultTimeout(
             "Timed out while waiting for result for task id={}".format(task_id)
         )
 
     # Image Captcha Methods
+    # https://rucaptcha.com/api-rucaptcha#solving_normal_captcha
 
     def submit_task_image(
         self,
@@ -246,6 +262,7 @@ class RucaptchaApi(object):
         return self.wait_task_result(self.submit_task_image(file, **kwargs))
 
     # Text Captcha Methods
+    # https://rucaptcha.com/api-rucaptcha#solving_text_captcha
 
     def submit_task_text(
         self,
@@ -281,6 +298,7 @@ class RucaptchaApi(object):
         )
 
     # Recaptcha V2 Captcha Methods
+    # https://rucaptcha.com/api-rucaptcha#solving_recaptchav2_new
 
     def submit_task_recaptcha_v2(
         self,
@@ -321,7 +339,6 @@ class RucaptchaApi(object):
         self.check_parameter_type("proxy", proxy, str)
         self.check_parameter_type("proxytype", proxytype, str)
         if proxytype:
-            proxytype = proxytype.upper()
             self.check_parameter_options(
                 "proxytype", proxytype, set(["HTTP", "HTTPS", "SOCKS4", "SOCKS5"])
             )
@@ -348,6 +365,7 @@ class RucaptchaApi(object):
         )
 
     # Recaptcha V3 Captcha Methods
+    # https://rucaptcha.com/api-rucaptcha#solving_recaptchav3
 
     def submit_task_recaptcha_v3(
         self,
@@ -401,6 +419,7 @@ class RucaptchaApi(object):
         )
 
     # Recaptcha Enterprise Captcha Methods
+    # https://rucaptcha.com/api-rucaptcha#solving_recaptcha_enterprise
 
     def submit_task_recaptcha_enterprise(
         self,
@@ -463,3 +482,14 @@ class RucaptchaApi(object):
         return self.wait_task_result(
             self.submit_task_recaptcha_enterprise(textcaptcha, **kwargs)
         )
+
+    # TODO:
+    # https://rucaptcha.com/api-rucaptcha#solving_recaptchav2_old
+    # https://rucaptcha.com/api-rucaptcha#solving_clickcaptcha
+    # https://rucaptcha.com/api-rucaptcha#solving_rotatecaptcha
+    # https://rucaptcha.com/api-rucaptcha#solving_funcaptcha_new
+    # https://rucaptcha.com/api-rucaptcha#solving_keycaptcha
+    # https://rucaptcha.com/api-rucaptcha#solving_geetest
+    # https://rucaptcha.com/api-rucaptcha#solving_hcaptcha
+    # https://rucaptcha.com/api-rucaptcha#solving_capy
+    # https://rucaptcha.com/api-rucaptcha#solving_tiktok
