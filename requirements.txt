@@ -5,3 +5,4 @@ pytest
 pytype
 runscript
 twine
+bumpversion
