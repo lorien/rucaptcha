@@ -1,13 +1,11 @@
 from pprint import pprint
-import yaml
 
 from rucaptcha import RucaptchaApi
 
 
 def main(**kwargs):
-    with open("var/config.yml") as inp:
-        config = yaml.safe_load(inp)
-    api_key = config["rucaptcha_api_key"]
+    with open("var/rucaptcha.key") as inp:
+        api_key = inp.read().strip()
     api = RucaptchaApi(api_key)
     with open("data/captcha.jpg", "rb") as inp:
         data = inp.read()

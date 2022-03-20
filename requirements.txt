@@ -4,5 +4,4 @@ flake8
 pytest
 pytype
 runscript
-pyyaml
 twine
