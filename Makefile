@@ -7,6 +7,7 @@ venv:
 
 deps:
 	.env/bin/pip install -r requirements.txt
+	.env/bin/pip install -e .
 
 clean:
 	find -name '*.pyc' -delete
